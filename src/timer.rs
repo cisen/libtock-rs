@@ -355,6 +355,7 @@ impl<'a> Consumer<Callback> for ParallelTimerConsumer {
 /// timer_driver.sleep(Duration::from_ms(1000)).await?;
 /// # Ok(())
 /// # }
+///
 /// ```
 pub struct ParallelSleepDriver<'a> {
     _callback_subscription: CallbackSubscription<'a>,
@@ -390,7 +391,7 @@ impl<'a> ParallelSleepDriver<'a> {
         };
 
         let suspended_timer: Cell<Option<ActiveTimer>> = Cell::new(None);
-
+        // 实现再src\futures.rs
         futures::wait_until(|| {
             self.activate_current_timer(this_alarm, &suspended_timer)
                 .unwrap_or(false)
@@ -462,7 +463,7 @@ impl<'a> ParallelSleepDriver<'a> {
         let alarm_instant = num_ticks + ticks;
         Ok(alarm_instant)
     }
-
+    // 判断异步svc是否得到结果返回了
     fn activate_current_timer(
         &self,
         this_alarm: ActiveTimer,

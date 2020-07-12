@@ -32,6 +32,7 @@ pub unsafe fn yieldk() {
 
 #[inline(always)]
 // Justification: documentation is generated from mocks
+// 这里的1/2/3/4对应：`kernel\src\syscall.rs`的1/2/3/4
 #[allow(clippy::missing_safety_doc)]
 pub unsafe fn subscribe(
     major: usize,
@@ -39,7 +40,13 @@ pub unsafe fn subscribe(
     cb: *const unsafe extern "C" fn(usize, usize, usize, usize),
     ud: usize,
 ) -> isize {
+    // 将结果code放到res返回
     let res;
+    // // 将结果code放到res返回
+    // 将major（driver_number）参数放入R0寄存器，minor（subscribe_number）放到R1寄存器
+    // 回调放到R2,用户数据放到R3
+    // r0:driver_number, r1:subscribe_number, r2: callback, r3: userdata
+    // driver_number见capsules\src\driver.rs
     llvm_asm!("svc 1" : "={r0}"(res)
                  : "{r0}"(major) "{r1}"(minor) "{r2}"(cb) "{r3}"(ud)
                  : "memory"
