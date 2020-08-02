@@ -15,7 +15,9 @@ use core::ops::{Add, AddAssign, Sub};
 
 const DRIVER_NUMBER: usize = 0x00000;
 
+// 时钟接受的命令并返回对应的结果
 mod command_nr {
+    // 驱动是否准备好了
     pub const IS_DRIVER_AVAILABLE: usize = 0;
     pub const GET_CLOCK_FREQUENCY: usize = 1;
     pub const GET_CLOCK_VALUE: usize = 2;
@@ -48,17 +50,19 @@ impl<CB: FnMut(ClockValue, Alarm)> Consumer<WithCallback<'_, CB>> for TimerEvent
 }
 
 impl<'a, CB: FnMut(ClockValue, Alarm)> WithCallback<'a, CB> {
+    // 检查时钟是否准备好和订阅时钟，返回一个Timer
     pub fn init(&'a mut self) -> TockResult<Timer<'a>> {
+        // 向时钟发送命令
         let num_notifications =
             syscalls::command(DRIVER_NUMBER, command_nr::IS_DRIVER_AVAILABLE, 0, 0)?;
-
+        // 获取时钟的频率，以HZ为单位
         let clock_frequency =
             syscalls::command(DRIVER_NUMBER, command_nr::GET_CLOCK_FREQUENCY, 0, 0)?;
-
+        // 如果时钟没有震动
         if clock_frequency == 0 {
             return Err(OtherError::TimerDriverErroneousClockFrequency.into());
         }
-
+        // 设置时钟频率
         let clock_frequency = ClockFrequency {
             hz: clock_frequency,
         };
@@ -92,8 +96,9 @@ impl<'a> Timer<'a> {
     pub fn clock_frequency(&self) -> ClockFrequency {
         self.clock_frequency
     }
-
+    // 获取当前时钟的值和频率
     pub fn get_current_clock(&self) -> TockResult<ClockValue> {
+        // 获取当前时钟的值和频率
         Ok(ClockValue {
             num_ticks: syscalls::command(DRIVER_NUMBER, command_nr::GET_CLOCK_VALUE, 0, 0)?
                 as isize,
@@ -105,12 +110,17 @@ impl<'a> Timer<'a> {
         syscalls::command(DRIVER_NUMBER, command_nr::STOP_ALARM, alarm.alarm_id, 0)?;
         Ok(())
     }
-
+    // 根据alarm震荡的次数在duration之后触发alarm的fired
     pub fn set_alarm(&mut self, duration: Duration<isize>) -> TockResult<Alarm> {
+        // 获取当前时钟的值和频率
         let now = self.get_current_clock()?;
         let freq = self.clock_frequency.hz();
         let duration_ms = duration.ms() as usize;
+        // ms * freq，延时（秒）* 频率（秒） = 总共执行了多少次ticks
+        // freq就是时钟的频率，以hz为单位（值是通过command从alarm获取的）
+        // ticks就是在duration的时间内，时钟执行了多少次震荡
         let ticks = match duration_ms.checked_mul(freq) {
+            // durations是毫秒，freq是秒，所以要/1000
             Some(x) => x / 1000,
             None => {
                 // Divide the largest of the two operands by 1000, to improve precision of the
@@ -128,8 +138,9 @@ impl<'a> Timer<'a> {
                 }
             }
         };
+        // 当前震荡次数+下一个到期震荡的次数
         let alarm_instant = now.num_ticks() as usize + ticks;
-
+        // 设置定时触发alarm的fired
         let alarm_id = syscalls::command(DRIVER_NUMBER, command_nr::SET_ALARM, alarm_instant, 0)?;
 
         Ok(Alarm { alarm_id })
